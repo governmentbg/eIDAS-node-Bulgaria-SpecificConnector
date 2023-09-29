@@ -1,69 +1,72 @@
-# BG specific eIDAS connector service
 
-- [1. Building the SpecificConnector webapp](#build)
-- [2. Integration with EidasNode webapp](#integrate_with_eidasnode)
-  * [2.1. Configuring communication with EidasNode](#integrate_eidasnode)
-  * [2.2. Ignite configuration](#ignite_conf)
-- [3. Metadata generation](#metdata_generation)
-- [4. Service provider integration](#service_providers)  
-- [5. Logging](#logging)
-  * [5.1. Log configuration](#log_conf)
-  * [5.2. Log file and format](#log_file)
-- [6. Monitoring](#heartbeat)
-- [7. Security](#security)
+# Специфичена конектор услуга за eIDAS възела на България
+
+- [1. Компилиране на специфичния конектор](#build)
+- [2. Интеграция с eIDAS възела](#integrate_with_eidasnode)
+  * [2.1. Конфигурация на комуникацията с EidasNode](#integrate_eidasnode)
+  * [2.2. Конфигурация на Ignite](#ignite_conf)
+- [3. Генериране на метаданни](#metdata_generation)
+- [4. Интегриране на доставчици на услуги](#service_providers)  
+- [5. Събиране на събития](#logging)
+  * [5.1. Настройване на събирането на събития](#log_conf)
+  * [5.2. Формат на файла за събиране на събития](#log_file)
+- [6. Наблюдение на услугата](#heartbeat)
+- [7. Сигурност](#security)
 
 <a name="build"></a>
 
-## 1. Building the SpecificConnector webapp
+## 1. Компилиране на специфичния конектор
 
-First, make sure you have built [eIDAS-Node](https://ec.europa.eu/digital-building-blocks/wikis/display/DIGITAL/eIDAS-Node+version+2.6) artifacts and installed these to local Maven repository:
+Първо, подсигурете наличието на компилиран [eIDAS-Node](https://ec.europa.eu/digital-building-blocks/wikis/display/DIGITAL/eIDAS-Node+version+2.6) и сте инсталирали артифактите в локално хранилище на Maven:
 ```
 cd EIDAS-Parent && mvn -DskipTests clean install -P NodeOnly,DemoToolsOnly -PnodeJcacheIgnite,specificCommunicationJcacheIgnite
 ```
 
-Then execute the following command:
+След това изпълнете следната команда:
 ````
 ./mvnw clean package
 ````
-**NB!** It is required that `application.properties` and `jks` files are placed in the `SpecificConnector` directory in `EidasNode` configuration repository - `$SPECIFIC_CONNECTOR_CONFIG_REPOSITORY/application.properties`, `$SPECIFIC_CONNECTOR_CONFIG_REPOSITORY/samlKeystore.jks`.
+**Важно!** Необходимо е `application.properties` и `jks` файловете да са поставени в папката `SpecificConnector` налична в хранилището за конфигурация на `EidasNode` - `$SPECIFIC_CONNECTOR_CONFIG_REPOSITORY/application.properties`, `$SPECIFIC_CONNECTOR_CONFIG_REPOSITORY/samlKeystore.jks`.
 
 <a name="integrate_with_eidasnode"></a>
-## 2. Integration with EidasNode webapp
+## 2. Интеграция с eIDAS възела
 
-In order to enable communication between `EidasNode` and `SpecificConnector` webapp's, both must be able to access the same `Ignite` cluster and have the same communication configuration (shared secret, etc).
+За да може да се осъществи комуникацията между `EidasNode` и `SpecificConnector` услугата, двете трябва да имат достъп до същия `Ignite` клъстер и да имат еднаква конфигурация на комуникацията (споделени тайни и т.н.)
 
-**NB!** It is assumed, that the `SpecificConnector` webapp is installed in the same web server instance as `EidasNode` and that both have access to the same configuration files.
+**Важно!** Предполага се, че `SpecificConnector` приложението е инсталирано в същия приложен сървър, както и `EidasNode`, както и двете приложения имат достъп до същата конфигурация. 
 
 <a name="integrate_eidasnode"></a>
-### 2.1 Configuring communication with EidasNode
+### 2.1 Конфигурация на комуникацията с EidasNode
 
-It is required that the `SpecificConnector` has access to communication definitions provided in the following `EidasNode` configuration files:
+Изисква се `SpecificConnector` да има достъп до дефинициите за комуникация предоставени в следните конфигурационни файлове на `EidasNode`:
 `$EIDAS_CONFIG_REPOSITORY/eidas.xml`,
 `$SPECIFIC_CONNECTOR_CONFIG_REPOSITORY/specificCommunicationDefinitionConnector.xml`
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължително | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `eidas.connector.specific-connector-request-url` | Yes | The URL in the `EidasNode` webapp, that accepts the lighttoken that references the member state specific authentication request. Example value: https://eidas-specificconnector:8443/EidasNode/SpecificConnectorRequest|
+| `eidas.connector.specific-connector-request-url` | Да | Адреса на `EidasNode`, който приема lighttoken, рефериращи заявката за автентикация към съответната страна членка. Примерна стойност: https://eidas-test.egov.bg:8443/EidasNode/SpecificConnectorRequest|
 
 <a name="ignite_conf"></a>
-### 2.2 Ignite configuration
+### 2.2 Конфигурация на Ignite
 
-It is required that `EidasNode` and `SpecificConnector` will share the same xml configuration file: `$EIDAS_CONFIG_REPOSITORY/igniteSpecificCommunication.xml`
+Изисква се `EidasNode` и `SpecificConnector` да споделят същия xml конфигурационен файл: `$EIDAS_CONFIG_REPOSITORY/igniteSpecificCommunication.xml`
 
-The `SpecificConnector` webapp starts Ignite node in client mode using EidasNode webapp's Ignite configuration. The ignite client is started lazily (initialized on the first query).
+`SpecificConnector` стартира Ignite възела в клиентски режим, като използва конфигурацията за Ignite на `EidasNode`. Клиента на Ignite се стартира мързеливо (инициализира се при първо запитване).
 
-Note that `SpecificConnector` requires access to four predefined maps in the cluster - see Table 1 for details.
+Основно е изискването за достъп на `SpecificConnector` до предефинираните ключове в клъстера - виж таблица 1 за детайли.
 
-| Map name        |  Description |
+| Име на ключ        |  Описание |
 | :---------------- | :---------- |
-| `specificNodeConnectorRequestCache` | Holds pending LightRequests from EidasNode webapp. |
-| `nodeSpecificConnectorResponseCache` | Holds LightResponses for EidasNode webapp. |
-| `specificMSSpRequestCorrelationMap` | Service provider request correlation map |
+| `specificNodeConnectorRequestCache` | Съдържа текущите LightRequest от EidasNode. |
+| `nodeSpecificConnectorResponseCache` | Съдържа текущите LightResponse от EidasNode. |
+| `specificMSSpRequestCorrelationMap` | Корелация между заявките постъпили от доставчиците на услуги. |
 
-Table 1 - Shared map's used in `SpecificConnector` webapp.
+Таблица 1 - Споделени ключове използвани в `SpecificConnector`.
 
-An example of a configuration file is provided below: 
+Примерна конфигурация по долу:
+
 ```
+...
 <property name="cacheConfiguration">
     <list>
         <!--Specific Communication Caches-->
@@ -104,52 +107,53 @@ An example of a configuration file is provided below:
         </bean>
     </list>
 </property>
+...
 ```
 
 <a name="metdata_generation"></a>
-## 3. Metadata generation
+## 3. Генериране на метаданни
 
-| Parameter                                                                  | Mandatory        | Description, example                                                                                                                                                                                                                                                                  |
-|:---------------------------------------------------------------------------|:-----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `eidas.connector.responder-metadata.key-store`                             | Yes              | Path to key store. Example: `file:/etc/eidasconf/keystore/responder-metadata-keystore.p12`                                                                                                                                                                                            |
-| `eidas.connector.responder-metadata.key-store-password`                    | Yes              | Key store password                                                                                                                                                                                                                                                                    |
-| `eidas.connector.responder-metadata.key-store-type`                        | No               | Key store type. Default value: `PKCS12`                                                                                                                                                                                                                                               |
-| `eidas.connector.responder-metadata.key-alias`                             | Yes <sup>5</sup> | Key alias in key store                                                                                                                                                                                                                                                                |
-| `eidas.connector.responder-metadata.key-password`                          | Yes <sup>4</sup> | Key password in key store                                                                                                                                                                                                                                                             |
-| `eidas.connector.responder-metadata.trust-store`                           | Yes              | Path to key store. Example: `file:/etc/eidasconf/keystore/responder-metadata-truststore.p12`                                                                                                                                                                                          |
-| `eidas.connector.responder-metadata.trust-store-password`                  | Yes              | Trust store password                                                                                                                                                                                                                                                                  |
-| `eidas.connector.responder-metadata.trust-store-type`                      | No               | Trust store type. Default value: `PKCS12`                                                                                                                                                                                                                                             |
-| `eidas.connector.responder-metadata.signature-algorithm`                   | No               | Signature algorithm used to sign published metadata, SAML response objects and assertions (defined by RFC 4051). Default value: `http://www.w3.org/2001/04/xmldsig-more#rsa-sha512`                                                                                                   |
-| `eidas.connector.responder-metadata.key-transport-algorithm`               | No               | Key transport algorithm used in SAML response assertions encryption. Default value: `http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p`                                                                                                                                                 |
-| `eidas.connector.responder-metadata.encryption-algorithm`                  | No               | Algorithm used in SAML response assertions encryption. Default value: `http://www.w3.org/2009/xmlenc11#aes256-gcm`                                                                                                                                                                    |
-| `eidas.connector.responder-metadata.path`                                  | No               | Metadata endpoint path. https://eidas-specificconnector:8443/SpecificConnector/{eidas.connector.responder-metadata.path}. Default value: `ConnectorResponderMetadata`                                                                                                                 |
-| `eidas.connector.responder-metadata.entity-id`                             | Yes              | Exact HTTPS URL where metadata is published. Examlpe: `https://eidas-specificconnector:8443/SpecificConnector/ConnectorResponderMetadata`                                                                                                                                             |
-| `eidas.connector.responder-metadata.sso-service-url`                       | Yes              | Exact HTTPS URL where authentication endpoint for service providers is located. Example: `https://eidas-specificconnector:8443/SpecificConnector/ServiceProvider`                                                                                                                     |
-| `eidas.connector.responder-metadata.name-id-format`                        | No               | Possible values: `urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`,`urn:oasis:names:tc:SAML:2.0:nameid-format:transient`,`urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`                                                                                                 |
-| `eidas.connector.responder-metadata.validity-interval`                     | No               | Metadata validity duration. [Defined as standard ISO-8601 format used by java.time.Duration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-conversion-duration) Default value: `1d`                          |
-| `eidas.connector.responder-metadata.assertion-validity-interval`           | No               | Authentication response assertion validity duration. [Defined as standard ISO-8601 format used by java.time.Duration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-conversion-duration) Default value: `5m` |
-| `eidas.connector.responder-metadata.supported-member-states`               | Yes              | Supported member states for authentication (defined by ISO 3166-1 alpha-2)                                                                                                                                                                                                            |
-| `eidas.connector.responder-metadata.supported-bindings`                    | No               | Possible values: `urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST`, `urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect`. Default value:`urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST,urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect`                                            |
-| `eidas.connector.responder-metadata.digest-methods`                        | No               | Supported digest methods. Default value: `http://www.w3.org/2001/04/xmlenc#sha256,http://www.w3.org/2001/04/xmlenc#sha512`                                                                                                                                                            |
-| `eidas.connector.responder-metadata.signing-methods[X].name`               | Yes              | Supported signing algorithm name (defined by RFC 4051)                                                                                                                                                                                                                                |
-| `eidas.connector.responder-metadata.signing-methods[X].minKeySize`         | Yes              | Minimum key size                                                                                                                                                                                                                                                                      |
-| `eidas.connector.responder-metadata.signing-methods[X].maxKeySize`         | Yes              | Maximum key size                                                                                                                                                                                                                                                                      |
-| `eidas.connector.responder-metadata.supported-attributes[X].name`          | Yes              | Supported eIDAS attribute name (defined by [eIDAS SAML Attribute Profile v1.2, paragraphs 2.2 and 2.3](https://ec.europa.eu/cefdigital/wiki/display/CEFDIGITAL/eIDAS+eID+Profile?preview=/82773108/148898847/eIDAS%20SAML%20Attribute%20Profile%20v1.2%20Final.pdf)                   |
-| `eidas.connector.responder-metadata.supported-attributes[X].friendly-name` | Yes              | Supported eIDAS attribute friendly name (defined by [eIDAS SAML Attribute Profile v1.2, paragraphs 2.2 and 2.3](https://ec.europa.eu/cefdigital/wiki/display/CEFDIGITAL/eIDAS+eID+Profile?preview=/82773108/148898847/eIDAS%20SAML%20Attribute%20Profile%20v1.2%20Final.pdf)          |
-| `eidas.connector.responder-metadata.organization.name`                     | Yes              | Organization name published in metadata                                                                                                                                                                                                                                               |
-| `eidas.connector.responder-metadata.organization.display-name`             | Yes              | Organization display name published in metadata                                                                                                                                                                                                                                       |
-| `eidas.connector.responder-metadata.organization.url`                      | Yes              | Organization homepage published in metadata                                                                                                                                                                                                                                           |
-| `eidas.connector.responder-metadata.contacts[X].surname`                   | Yes              | Contact surname published in metadata                                                                                                                                                                                                                                                 |
-| `eidas.connector.responder-metadata.contacts[X].given-name`                | Yes              | Contact given name published in metadata                                                                                                                                                                                                                                              |
-| `eidas.connector.responder-metadata.contacts[X].company`                   | Yes              | Contact company published in metadata                                                                                                                                                                                                                                                 |
-| `eidas.connector.responder-metadata.contacts[X].phone`                     | Yes              | Contact phone published in metadata                                                                                                                                                                                                                                                   |
-| `eidas.connector.responder-metadata.contacts[X].email`                     | Yes              | Contact email published in metadata                                                                                                                                                                                                                                                   |
-| `eidas.connector.responder-metadata.contacts[X].type`                      | Yes              | Contact type. Possible values: `technical`,`support`,`administrative`,`billing`,`other`                                                                                                                                                                                               |
+| Параметър                                                                  | Задължителен        | Описание, пример                                                                                                                                                                                                                                                                         |
+|:---------------------------------------------------------------------------|:-----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `eidas.connector.responder-metadata.key-store`                             | Да               | Път до хранилището за ключове. Пример: `file:/etc/eidasconf/keystore/responder-metadata-keystore.p12`                                                                                                                                                                                       |
+| `eidas.connector.responder-metadata.key-store-password`                    | Да               | Парола за хранилището на ключове.                                                                                                                                                                                                                                                           |
+| `eidas.connector.responder-metadata.key-store-type`                        | Не               | Тип хранилище на ключове. Стойност по подразбиране: `PKCS12`                                                                                                                                                                                                                                |
+| `eidas.connector.responder-metadata.key-alias`                             | Да <sup>5</sup>  | Наименование на ключа от хранилището.                                                                                                                                                                                                                                                       |
+| `eidas.connector.responder-metadata.key-password`                          | Да <sup>4</sup>  | Парола за ключа от хранилището.                                                                                                                                                                                                                                                             |
+| `eidas.connector.responder-metadata.trust-store`                           | Да               | Път до хранилище на доверени сертификати. Пример: `file:/etc/eidasconf/keystore/responder-metadata-truststore.p12`                                                                                                                                                                          |
+| `eidas.connector.responder-metadata.trust-store-password`                  | Да               | Парола за хранилището на доверени сертификати.                                                                                                                                                                                                                                              |
+| `eidas.connector.responder-metadata.trust-store-type`                      | Не               | Тип хранилище на доверени сертификати. Стойност по подразбиране: `PKCS12`                                                                                                                                                                                                                   |
+| `eidas.connector.responder-metadata.signature-algorithm`                   | Не               | Алгоритъм за подписване, използван за подписване на публикуваните метаданни, SAML отговори и твърдения (дефиниран в RFC 4051). Стойност по подразбиране: `http://www.w3.org/2001/04/xmldsig-more#rsa-sha512`                                                                                |
+| `eidas.connector.responder-metadata.key-transport-algorithm`               | Не               | Тип на транспортия алгоритм за криптиране на SAML отговорите (твърденията). Стойност по подразбиране: `http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p`                                                                                                                                     |
+| `eidas.connector.responder-metadata.encryption-algorithm`                  | Не               | Алгоритъм използван в SAML отговорите (твърденията) за криптиране. Стойност по подразбиране: `http://www.w3.org/2009/xmlenc11#aes256-gcm`                                                                                                                                                   |
+| `eidas.connector.responder-metadata.path`                                  | Не               | Път на точката за метаданни. https://eidas-specificconnector:8443/SpecificConnector/{eidas.connector.responder-metadata.path}. Стойност по подразбиране: `ConnectorResponderMetadata`                                                                                                       |
+| `eidas.connector.responder-metadata.entity-id`                             | Да               | Точния HTTPS URL адрес, където са поубликувани метаданните. Пример: `https://eidas-specificconnector:8443/SpecificConnector/ConnectorResponderMetadata`                                                                                                                                     |
+| `eidas.connector.responder-metadata.sso-service-url`                       | Да               | Точния HTTPS URL адрес, където се публикува точкат за автентикация от доставчиците на услуги. Пример: `https://eidas-specificconnector:8443/SpecificConnector/ServiceProvider`                                                                                                              |
+| `eidas.connector.responder-metadata.name-id-format`                        | Не               | Формат за name-id. Възможни стойности: `urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified`,`urn:oasis:names:tc:SAML:2.0:nameid-format:transient`,`urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`                                                                                 |
+| `eidas.connector.responder-metadata.validity-interval`                     | Не               | Валидност на метаданните. [Дефинирана по ISO-8601 формат използван от java.time.Duration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-conversion-duration). Стойност по подразбиране: `1d`                       |
+| `eidas.connector.responder-metadata.assertion-validity-interval`           | Не               | Валидност на отговорите (твърденията) от автентикация. [Дефинирана по ISO-8601 формат използван от java.time.Duration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-conversion-duration). Примерна стойност: `5m` |
+| `eidas.connector.responder-metadata.supported-member-states`               | Да               | Поддържани страни членки за автентикация (дефинирани по ISO 3166-1 alpha-2).                                                                                                                                                                                                                |
+| `eidas.connector.responder-metadata.supported-bindings`                    | Не               | SAML2 поддържани bindings. Възможни стойности: `urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST`, `urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect`. Стойност по подразбиране:`urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST,urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect`         |
+| `eidas.connector.responder-metadata.digest-methods`                        | Не               | Поддържания методи за digest. Стойност по подразбиране: `http://www.w3.org/2001/04/xmlenc#sha256,http://www.w3.org/2001/04/xmlenc#sha512`                                                                                                                                                   |
+| `eidas.connector.responder-metadata.signing-methods[X].name`               | Да               | Поддържани алгоритми за подписване (дефиниран по RFC 4051)                                                                                                                                                                                                                                  |
+| `eidas.connector.responder-metadata.signing-methods[X].minKeySize`         | Да               | Минимален размер на ключа                                                                                                                                                                                                                                                                   |
+| `eidas.connector.responder-metadata.signing-methods[X].maxKeySize`         | Да               | Максимален размер на ключа                                                                                                                                                                                                                                                                  |
+| `eidas.connector.responder-metadata.supported-attributes[X].name`          | Да               | Поддържан eIDAS атрибут по име (дефиниран по [eIDAS SAML Attribute Profile v1.2, paragraphs 2.2 and 2.3](https://ec.europa.eu/cefdigital/wiki/display/CEFDIGITAL/eIDAS+eID+Profile?preview=/82773108/148898847/eIDAS%20SAML%20Attribute%20Profile%20v1.2%20Final.pdf)                       |
+| `eidas.connector.responder-metadata.supported-attributes[X].friendly-name` | Да               | Поддържан eIDAS атрибут по познато име (дефиниран по [eIDAS SAML Attribute Profile v1.2, paragraphs 2.2 and 2.3](https://ec.europa.eu/cefdigital/wiki/display/CEFDIGITAL/eIDAS+eID+Profile?preview=/82773108/148898847/eIDAS%20SAML%20Attribute%20Profile%20v1.2%20Final.pdf)               |
+| `eidas.connector.responder-metadata.organization.name`                     | Да               | Име на организацията, публикувано в метаданните.                                                                                                                                                                                                                                            |
+| `eidas.connector.responder-metadata.organization.display-name`             | Да               | Публично име на организацията, публикувано в метаданните.                                                                                                                                                                                                                                   |
+| `eidas.connector.responder-metadata.organization.url`                      | Да               | Страниця на организацията, публикувана в метаданните.                                                                                                                                                                                                                                       |
+| `eidas.connector.responder-metadata.contacts[X].surname`                   | Да               | Фамилия за контакт, публикувана в метаданните.                                                                                                                                                                                                                                              |
+| `eidas.connector.responder-metadata.contacts[X].given-name`                | Да               | Име за контакт, публикувана в метаданните.                                                                                                                                                                                                                                                  |
+| `eidas.connector.responder-metadata.contacts[X].company`                   | Да               | Компания за контакт, публикувана в метаданните.                                                                                                                                                                                                                                             |
+| `eidas.connector.responder-metadata.contacts[X].phone`                     | Да               | Телефон за контакт, публикувана в метаданните.                                                                                                                                                                                                                                              |
+| `eidas.connector.responder-metadata.contacts[X].email`                     | Да               | Е-mail за контакт, публикувана в метаданните.                                                                                                                                                                                                                                               |
+| `eidas.connector.responder-metadata.contacts[X].type`                      | Да               | Тип на контакта, публикувана в метаданните. Възможни стойности: `technical`,`support`,`administrative`,`billing`,`other`                                                                                                                                                                    |
 
-* Where X is index starting from zero and incremented for each new signing method, contact, supported attribute.
+* За X се поставя индексно число, стартиращо от 0 и нарастващо за всеки нов метод за подписване, контакт, поддържан атрибут.
 
 
-| Default values                                                                                                                                            |
+| Стойности по подразбиране                                                                                                                                 |
 |:----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `eidas.connector.hsm.enabled=false`                                                                                                                       |
 | `eidas.connector.hsm.certificates-from-hsm=false`                                                                                                         |
@@ -205,7 +209,7 @@ An example of a configuration file is provided below:
 | `eidas.connector.responder-metadata.supported-attributes[17]name=http://eidas.europa.eu/attributes/legalperson/VATRegistrationNumber`                     |
 | `eidas.connector.responder-metadata.supported-attributes[17]friendlyName=VATRegistration`                                                                 |
 
-Example metadata published by endpoint https://eidas-specificconnector:8443/SpecificConnector/ConnectorResponderMetadata
+Примерни метаданни публикувани на адрес https://eidas-specificconnector:8443/SpecificConnector/ConnectorResponderMetadata
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -338,114 +342,115 @@ OF6TawGAOCgZSsptJbU=</ds:X509Certificate>
 ```
 
 <a name="service_providers"></a>
-## 4. Service provider integration
+## 4. Интегриране на доставчици на услуги
 
-To add new service provider, following properties must be set for each service provider:
+За да добавите нов доставчик на услуги, следните конфигурационни параметри трябва да бъдат заложени за всеки отделен доставчик.
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължителен | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `eidas.connector.service-providers[X].id` | Yes | Id of service provider. Must be unique. |
-| `eidas.connector.service-providers[X].entity-id` | Yes | `entityId` published in service provider metadata. It is a HTTPS URL pointing to the location of metadata. Must be unique. |
-| `eidas.connector.service-providers[X].key-alias` | Yes | Certificate key alias in [responder truststore](). Must be unique. |
+| `eidas.connector.service-providers[X].id` | Да | Идентификатор на доставчика. Трябва да е уникален. |
+| `eidas.connector.service-providers[X].entity-id` | Да | `entityId` публикувано в метаданните на доставчика. Представлява HTTPS URL адреса сочещ до местоположението на метаданните. Трябва да е уникален. |
+| `eidas.connector.service-providers[X].key-alias` | Да | Наименование на сертификата от хранилището за доверени сертификати. Трябва да е уникалнен. |
 
-* Where X is index starting from zero and incremented for each new service provider.
+* За X индекс се използва цяло число, започващо от 0 и нарастващо за всеки нов доставчик.
 
-Application periodically checks to see if the service provider metadata has changed. Each service provider can publish `validUntil` and `cacheDuration`
-in its metadata to indicate how metadata should be updated.
+Приложението периодично проверява за промени в метаданните на доставчиците на усуги. Всеки доставчик публикува `validUntil` и `cacheDuration` 
+в метаданните си, за да укаже как/кога трябва да се обновят те.
 
-The delay between each refresh interval is calculated as follows: 
+Времето между всеки интервал за опресняване се калкулира по следния начин:
 
-If there is a problem connecting to service provider metadata, then `eidas.connector.service-provider-metadata-min-refresh-delay` is used as reconnection delay. If no `validUntil` and `cacheDuration` is present in the metadata, then the `eidas.connector.service-provider-metadata-max-refresh-delay` value is used. If that refresh interval is larger than the max refresh delay then `eidas.connector.service-provider-metadata-max-refresh-delay` is used. If its smaller than the min refresh delay then `eidas.connector.service-provider-metadata-min-refresh-delay` is used. Otherwise, the calculated refresh delay multiplied by `eidas.connector.service-provider-metadata-refresh-delay-factor` is used. By using this factor, the application will attempt to refresh before the cache actually expires, allowing a some room for error and recovery. Assuming the factor is not exceedingly close to 1.0 and a min refresh delay that is not overly large, this refresh will likely occur a few times before the cache expires.
+Ако има проблем с връзката до метаданните на доставчика, тогава `eidas.connector.service-provider-metadata-min-refresh-delay` се използва за интервал между опитите. Ако липсват `validUntil` и `cacheDuration` в метаданните, тогава `eidas.connector.service-provider-metadata-max-refresh-delay` се използва. Ако този интервал е по голям от максималното време, тогава се използва `eidas.connector.service-provider-metadata-max-refresh-delay`. В противен случа, се калкулира чрез умножение с `eidas.connector.service-provider-metadata-refresh-delay-factor`. Използвайки този фактор, приложението ще опита да опресни данните преди изтичане на кеша, позволявайки възможност за възстановяване при грешки. Приемайки този фактор не надвишава 1.0 и минималното време за опресняване не е прекалено голямо, това ще се осъществи няколко пъти преди изтичането на кеша.
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължителен | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `eidas.connector.service-provider-metadata-min-refresh-delay` | No | Sets the minimum amount of time, in milliseconds, between refreshes. Default value: `60000` (60 seconds) |
-| `eidas.connector.service-provider-metadata-max-refresh-delay` | No |  Refresh interval used when metadata does not contain any validUntil or cacheDuration information. Default value: `14400000` (4 hours) |
-| `eidas.connector.service-provider-metadata-refresh-delay-factor` | No | Sets the delay factor used to compute the next refresh time. The delay must be between `0.0` and `1.0` exclusive. |
-| `eidas.connector.add-saml-error-assertion` | No | Backwards compatibility option for eIDAS-Client to add encrypted assertion, when authentication fails. Default value: `false` |
+| `eidas.connector.service-provider-metadata-min-refresh-delay` | Не | Минимално време в милисекунди, между опресняванията. Стойност по подразбиране: `60000` (60 секунди) |
+| `eidas.connector.service-provider-metadata-max-refresh-delay` | Не | Интервал на опресняване, използван при липса на `validUntil` или `cacheDuration`. Стойност по подразбиране: `14400000` (4 часа) |
+| `eidas.connector.service-provider-metadata-refresh-delay-factor` | Не | Залага фактор на забавяне, използван за премсятане на следващите интервал за опресняване. Необходимо е да е между `0.0` и `1.0`. |
+| `eidas.connector.add-saml-error-assertion` | Не | Мехънизъм за обратна съвместимост, който позволява eIDAS-Client да добави криптиране, при провал на автентикацията. Стойност по подразбиране: `false` |
 
 <a name="logging"></a>
-## 5. Logging
+## 5. Събиране на събития
 
-Logging in SpecificConnectorService is handled by [Logback framework](http://logback.qos.ch/documentation.html) through the [SLF4J facade](http://www.slf4j.org/).
+Събирането на събития в SpecificConnectorService се осъществява чрез [Logback framework](http://logback.qos.ch/documentation.html) посредством [SLF4J facade](http://www.slf4j.org/).
 
 <a name="log_conf"></a>
-### 5.1 Log configuration
+### 5.1 Настройване на събирането на събития
 
-Logging can be configured by using an xml configuration file (logback-spring.xml). By default the SpecificConnectorService webapp uses an example configuration embedded in the service application, that logs into a file - `/var/log/SpecificConnector-yyyy-mm-dd.log` and rotates active file daily. Console logging is disabled by default.
+Събирането на събития може да бъде конфигурирано чрез xml конфигурационния файл (logback-spring.xml). По подразбиране SpecificConnectorService използва примерна конфигурация в приложението, която събира събитията във файл - `/var/log/SpecificConnector-yyyy-mm-dd.log` и сменя файла ежедневно. Събитията в конзолата са спрени по подразбиране.
 
-Logging behavior can be customized in the following ways:
+Поведението за събирането на събития може да бъде променено по следните начини:
 
-1. By overriding the specific parameter values in the default logback-spring.xml configuration file with environment variables (see table 5.1.1)
+1. Чрез превъзлагане на специфичните параметри във logback-spring.xml конфигурацията чрез системни променливи (виж таблица 5.1.1)
 
-    Table 5.1.1 - properties in the default log confguration file
+    Таблица 5.1.1 - Стойности по подразбиране
 
-    | Parameter        | Mandatory | Description, example |
+    | Параметър        | Задължителен | Описание, пример |
     | :---------------- | :---------- | :----------------|
-    | `LOG_HOME` | No | Directory for log files. Defaults to `/var/log`, if not specified. |
-    | `LOG_CONSOLE_LEVEL` | No | Level of detail for console logger. Valid values are: `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. Defaults to `OFF`, if not specified. |
-    | `LOG_CONSOLE_PATTERN` | No | Log row pattern for console logs.  |
-    | `LOG_FILE_LEVEL` | No | Level of detail for file logger. Valid values are: `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. Defaults to `INFO`, if not specified. |
-    | `LOG_FILES_MAX_COUNT` | No | The number days rotated log files are kept locally. Defaults to `31`, if not specified. |    
+    | `LOG_HOME` | Не | Директория в която се записват файловете със събития. По подразбиране е `/var/log`, ако не е посочена. |
+    | `LOG_CONSOLE_LEVEL` | Не | Ниво на детайлност за събитята извеждани в конзолата. Валидните стойности са: `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. По подразбиране е `OFF`, ако не е посочена. |
+    | `LOG_CONSOLE_PATTERN` | Не | Шаблон за редовете при извеждане на събитията към конзолата. |
+    | `LOG_FILE_LEVEL` | Не | Ниво на детайлите за събитията събирани във файл. Валидните стойности са: `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. По подразбиране е `INFO`, ако не е посочена. |
+    | `LOG_FILES_MAX_COUNT` | Не | Брой на дните, за които се запазват файловете при подмяната им. По подразбиране е `31`, ако не е посочена. |    
 
-2. Custom logging configuration file can be provided for more detailed logging control. Log file location can be specified by using the environment variable `LOGGING_CONFIG`, Java system property `logging.config` or property providing the property `logging.config` in the application.properties file.
+2. Специфичен файл може да бъде посочен, за по детайлен контрол върху записванеот на събитията. Неговото местоположение се оказва чрез системната променлива `LOGGING_CONFIG`, Java системната променлива `logging.config` или променлива `logging.config` в application.properties файла на приложението. 
 
-   Example 1: overriding the default log conf with environment variable:
+   Пример 1: Промяна на конфигурацията по подразбиране чрез системна променлива:
     
    ````
    LOGGING_CONFIG=/etc/eidas/config/logback.xml
    ````
    
-   Example 2: overriding the default log conf with Java system property:
+   Пример 2: Промяна чрез Java системна променлива:
        
    ````
    -Dlogging.config=/etc/eidas/config/logback.xml
    ````      
 
-   Example 3: overriding the default log conf in the application.properties:
+   Пример 3: Промяна чрез стойност в application.properties:
     
    ````
    logging.config=file:/etc/eidas/config/logback.xml
    ````   
 
 <a name="log_file"></a>
-### 5.2 Log file and format
-By default the SpecificConnectorService webapp uses an example configuration embedded in the service application, that logs into a file - `/var/log/SpecificConnector-yyyy-mm-dd.log`. 
+### 5.2 Формат на файла за събиране на събития
 
-JSON format is used for a log row. The JSON field set for a single log record follows the [ECS Field reference](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html).  
+По подразбиране SpecificConnectorService използва примерна конфигурация вградена в приложението, която записва събитията в файл - `/var/log/SpecificConnector-yyyy-mm-dd.log`. 
 
-The following log record fields are supported:
+JSON формата се използва за оформление на редовете. Полетата в JSON-a sledwat [ECS Field reference](https://www.elastic.co/guide/en/ecs/current/ecs-field-reference.html).  
 
-| Parameter        | Mandatory | Description, example                                                                                                                                                       |
+Следните полета се поддържат:
+
+| Параметър        | Задължителен | Описание, пример                                                                                                                                                       |
 | :---------------- | :---------- |:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `@timestamp` | Yes | Date/time when the event originated.                                                                                                                                       |
-| `log.level` | Yes | Original log level of the log event. Possible values: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`                                                                            |
-| `log.logger` | Yes | The name of the logger inside an application.                                                                                                                              |
-| `process.pid` | Yes | Process ID.                                                                                                                                                                |
-| `process.thread.name` | Yes | Thread name.                                                                                                                                                               |
-| `service.name` | Yes | Name of the service data is collected from. Constant value: `bg-eidas-connector`.                                                                                          |
-| `service.type` | Yes | The type of the service data is collected from. Constant value: `specific`.                                                                                                |
-| `service.node.name` | Yes | Unique name of a service node. This allows for two nodes of the same service running on the same host to be differentiated.                                                |
-| `service.version` | No | Version of the service.                                                                                                                                                    |
-| `session.id` | No | Unique identifier of the session. Cookie based identifier that enables log correlation between `EidasNode` and `SpecificConnectorService` webapps.                         |
-| `trace.id` | No | Unique identifier of the session. Groups multiple events like transactions that belong together. For example, a user request handled by multiple inter-connected services. |
-| `transaction.id` | No | Unique identifier of the transaction. A transaction is the highest level of work measured within a service, such as a request to a server.                                 |
-| `message` | Yes | The log message.                                                                                                                                                           |
-| `error.type` | No | The type of the error - the class name of the exception.                                                                                                                   |
-| `error.stack_trace` | No | The stack trace of this error in plain text.                                                                                                                               |
-| `event.kind` | No | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-kind.html)                                                           |
-| `event.category` | No | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-category.html)                                                       |
-| `event.type` | No | The [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-type.html)                                                       |
-| `event.outcome` | No | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-outcome.html)                                                        |
+| `@timestamp`  | Да | Дата/час когато се е случило събитието.                                                                                                                                       |
+| `log.level`   | Да | Оригинално ниво на събитието. Възможни стойности: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`                                                                            |
+| `log.logger`  | Да | Наименованието на компонента от приложението.                                                                                                                              |
+| `process.pid` | Да | ID на процеса.                                                                                                                                                                |
+| `process.thread.name` | Да | Име на нишката.                                                                                                                                                               |
+| `service.name` | Да | Име на услугата от която е събрано събитието. Константна стойност: `bg-eidas-connector`.                                                                                          |
+| `service.type` | Да | Типа на услугата от която е събрано събитието. Константна стойност: `specific`.                                                                                                |
+| `service.node.name` | Да | Уникално име на нода. Това позволява два нода с една и съща услуга, върху един и същи хост да се разграничат.                                                |
+| `service.version` | Не | Версия на приложението.                                                                                                                                                    |
+| `session.id` | Не | Уникален идентификатор на сесията. Базиран е на http бисквитка, която позволява корелация между `EidasNode` и `SpecificConnectorService`.                         |
+| `trace.id` | Не | Уникален идентификатор на сесията. Групира множество събития (транзакции) които са свързани помежду им. На пример, потребителска заявка преминала между няколко вътрешно-свързани услуги. |
+| `transaction.id` | Не | Уникален идентификатор на транзакцията. Тя е най-високото ниво за измерване на работата на приложението, като заявка до сървъра.                                 |
+| `message` | Да | Същинското съобщение/събитие.                                                                                                                                                           |
+| `error.type` | Не | Типа на грешката - името на проблемния клас.                                                                                                                   |
+| `error.stack_trace` | Не | Проследяване по стека за грешката в текстови формат.                                                                                                                               |
+| `event.kind` | Не | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-kind.html)                                                           |
+| `event.category` | Не | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-category.html)                                                       |
+| `event.type` | Не | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-type.html)                                                       |
+| `event.outcome` | Не | [ECS Event Categorization Field](https://www.elastic.co/guide/en/ecs/current/ecs-allowed-values-event-outcome.html)                                                        |
 
-Custom fields related to authentication
+Полета по избор, относими към автентикацията
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължителен | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `authn_request` | No | Fields related to SAML 2.0 AuthnRequest |
-| `saml_response` | No | Fields related to SAML 2.0 SAML Response |
+| `authn_request` | No | Полета относно SAML 2.0 AuthnRequest |
+| `saml_response` | No | Полета относно SAML 2.0 Response |
 
-Example log message containing Authentication initialization event (authn_request):
+Примерно съобщение за събитие съдържащо инициализиращо запитване за автентикация (authn_request):
 
 ```json
 {
@@ -530,7 +535,7 @@ Example log message containing Authentication initialization event (authn_reques
 }
 ```
 
-Example log message containing successful Authentication end event (saml_response):
+Примерно съобщение за успешна автентикация (saml_response):
 
 ```json
 {
@@ -631,7 +636,8 @@ Example log message containing successful Authentication end event (saml_respons
 }
 ```
 
-Example log message containing failed Authentication end event (saml_response): 
+Примерно съобщение за провалена автентикация (saml_response):
+
 ```json
 {
   "@timestamp": "2020-10-23T14:36:09.447Z",
@@ -702,28 +708,28 @@ Example log message containing failed Authentication end event (saml_response):
 }
 ```
 <a name="heartbeat"></a>
-## 6. Monitoring
+## 6. Наблюдение на услугата
 
-`SpecificConnector` webapp uses `Spring Boot Actuator` for monitoring. To customize Monitoring, Metrics, Auditing, and more see [Spring Boot Actuator documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#production-ready).
+`SpecificConnector` използва `Spring Boot Actuator` за мониторинг. За да се измени мониторирането, метриките, одита и други вижте [Spring Boot Actuator documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#production-ready).
 
-### 6.1 Disable all monitoring endpoints configuration
+### 6.1 Спиране на конфигурацията за всички точки за мониториране
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължително | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `management.endpoints.jmx.exposure.exclude` | No | Endpoint IDs that should be excluded to be exposed over JMX or `*` for all. Recommended value `*` |
-| `management.endpoints.web.exposure.exclude` | No | Endpoint IDs that should be excluded to be exposed over HTTP or `*` for all. Recommended value `*` |
+| `management.endpoints.jmx.exposure.exclude` | Не | Идентификатор на точките, които трябва да бъдат премахнати при използване на JMX или `*` за всички. Препоръчителна стойност `*`. |
+| `management.endpoints.web.exposure.exclude` | Не | Идентификатор на точките, които трябва да бъдат премахнати при използване на HTTPS или `*` за всички. Препоръчителна стойност `*`. |
 
-### 6.2 Custom application health endpoint configuration
+### 6.2 Персонализирани точки за състоянието на приложението
 
-`SpecificConnector` webapp implements [custom health endpoint](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#production-ready-endpoints-custom) with id `heartbeat` and [custom health indicators](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#writing-custom-healthindicators) with id's `igniteCluster`, `connectorMetadata`, `responderMetadata`, `truststore`, `sp-%{service-provider-id}-metadata`. This endpoint is disabled by default.
+`SpecificConnector` имплементира [персонализирана точка за състоянието](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#production-ready-endpoints-custom) с идентификатор `heartbeat` и [персонализирани точки за работоспособността](https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-features.html#writing-custom-healthindicators) с идентификатори `igniteCluster`, `connectorMetadata`, `responderMetadata`, `truststore`, `sp-%{service-provider-id}-metadata`. Тази точки са спрени по подразбиране.
 
-Request:
+Заявка:
 
 ````
 curl -X GET https://eidas-connector:8084/SpecificConnector/heartbeat
 ````
 
-Response:
+Отговор:
 ```json
 {
   "currentTime": "2020-09-28T15:45:34.091Z",
@@ -760,28 +766,27 @@ Response:
 }
 ```
 
-#### 6.2.1 Minimal recommended configuration to enable only `heartbeat` endpoint:
+#### 6.2.1 Минимална препоръчителна конфигурация за позволяване единствено на точката `heartbeat`:
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължително | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `management.endpoints.jmx.exposure.exclude` | No | Endpoint IDs that should be excluded to be exposed over JMX or `*` for all. Recommended value `*` |
-| `management.endpoints.web.exposure.include` | No | Endpoint IDs that should be included to be exposed over HTTP or `*` for all. Recommended value `heartbeat` |
-| `management.endpoints.web.base-path` | No |  Base path for Web endpoints. Relative to server.servlet.context-path or management.server.servlet.context-path if management.server.port is configured. Recommended value `/` |
-| `management.health.defaults.enabled` | No | Whether to enable default Spring Boot Actuator health indicators. Recommended value `false` |
-| `management.info.git.mode` | No | Mode to use to expose git information. Recommended value `full` |
-| `eidas.connector.health.dependencies.connect-timeout` | No | Timeout for `connectorMetadata` health indicators. Defaults to `3s` |
-| `eidas.connector.health.hsm-test-interval` | No<sup>1</sup> | Minimum interval for testing hardware security module for `responderMetadata` health indicator.<sup>2</sup> Defaults to `60s` |
-| `eidas.connector.health.key-store-expiration-warning` | No | Responder metadata certificate expiration warning period for `responderMetadata` health indicator. Default value `30d` |
-| `eidas.connector.health.trust-store-expiration-warning` | No | Trusted certificates expiration warning period for `truststore` health indicator. Default value `30d` |
+| `management.endpoints.jmx.exposure.exclude` | Не | Идентификатори на точки, които трябва да бъдат пропуснати при експортирането им чрез `JMX` или `*` за всички. Препоръчителна стойност: `*` |
+| `management.endpoints.web.exposure.include` | Не | Идентификатори на точки, които трябва да бъдат включени при експортирането им чрез `HTTP` или `*` за всички. Препоръчителна стойност: `hearbeat` |
+| `management.endpoints.web.base-path` | Не |  Базов път за уеб точките. В релация спрямо `server.servlet.context-path` или `management.server.servlet.context-path` ако `management.server.port` е конфигуриран. Препоръчителна стойност: `/` |
+| `management.health.defaults.enabled` | Не | Дали да са включени индикаторите по подразбиране от Spring Boot Actuator за работоспособност. Препоръчителна стойност: `false` |
+| `management.info.git.mode` | Не | Режим, в който се извежда git информацията. Препоръчителна стойност: `full` |
+| `eidas.connector.health.dependencies.connect-timeout` | Не | Време за изчакване за `connectorMetadata` индикатора. По подразбиране: `3s` |
+| `eidas.connector.health.hsm-test-interval` | Не<sup>1</sup> | Минимален интервал за тестовете към HSM относно модула за `responderMetadata` индикатора.<sup>2</sup> По подразбиране: `60s` |
+| `eidas.connector.health.key-store-expiration-warning` | Не | Период за предупреждение преди изтичането на сертификата за `responderMetadata` индикатора. По подразбиране: `30d` |
+| `eidas.connector.health.trust-store-expiration-warning` | Не | Период за предупреждение преди изтичането на сертификати от `truststore` индикатора. Стойност по подразбиране: `30d` |
 
-<sup>1</sup> Applicable only when `eidas.connector.hsm.enabled=true`
+<sup>1</sup> Приложимо само при `eidas.connector.hsm.enabled=true`
 
-<sup>2</sup> Hardware security module test is only executed when `heartbeat` endpoint is requested. To minimize impact on HSM `eidas.connector.health.hsm-test-interval` denotes time interval before next test can be executed. If the interval is not due, the previous test result is used instead unless an exception occurs somewhere in the application when using keys from HSM. When an exception occurs using keys from HSM, every request to `heartbeat` endpoint executes testing until the error resolves.  
+<sup>2</sup> Тестовете на HSM се изпълняват само когато `heartbeat` точката е извикана. За да се минимизира ефекта върху HSM `eidas.connector.health.hsm-test-interval` определя времевия интервал преди да е възможно изпълнението на последващ тест. Ако интервала не е изминал, предишния резултат се връща в случаите, не е имало проблем при използването на модула от приложението. Когато е имало проблеми с HSM в работата на приложението, тестовете се изпълняват на всяка заявка към `hearbeat` точката, до отпадане на грешките.
 
 <a name="security"></a>
-## 7. Security
+## 7. Сигурност
 
-| Parameter        | Mandatory | Description, example |
+| Параметър        | Задължителен | Описание, пример |
 | :---------------- | :---------- | :----------------|
-| `eidas.connector.content-security-policy` | No | HTTP Content security policy. Default value `block-all-mixed-content; default-src 'self'; object-src: 'none'; frame-ancestors 'none'; script-src 'self' 'sha256-8lDeP0UDwCO6/RhblgeH/ctdBzjVpJxrXizsnIk3cEQ='` |
-
+| `eidas.connector.content-security-policy` | Не | HTTP политика за сигурност на съдържанието (CSP). Стойност по подразбиране: `block-all-mixed-content; default-src 'self'; object-src: 'none'; frame-ancestors 'none'; script-src 'self' 'sha256-8lDeP0UDwCO6/RhblgeH/ctdBzjVpJxrXizsnIk3cEQ='` |
